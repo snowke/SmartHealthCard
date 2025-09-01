@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a .NET 8 C# library for creating, validating, and processing SMART Health Card JWS tokens and their QR codes. The solution implements the SMART Health Cards Framework specifications for health data verification using FHIR resources, digital signatures, and QR codes.
+This is a .NET 9 C# library for creating, validating, and processing SMART Health Card JWS tokens and their QR codes. The solution implements the SMART Health Cards Framework specifications for health data verification using FHIR resources, digital signatures, and QR codes.
 
 ## Build and Test Commands
 
@@ -72,7 +72,7 @@ dotnet pack SmartHealthCard.QRCode/SmartHealthCard.QRCode.csproj
 - Supports health card types: HealthCard, Covid19, Immunization, Laboratory
 
 ### Development Notes
-- Target framework: .NET 8
+- Target framework: .NET 9
 - Uses Newtonsoft.Json for serialization
 - Comprehensive exception handling with specific exception types
 - Support for custom JWKS providers for development without public endpoints
