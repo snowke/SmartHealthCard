@@ -22,74 +22,41 @@ namespace SmartHealthCard.Test
     [Fact]
     public async void Create_Token_Decode_Token()
     {
-      //### Prepare ######################################################
-
-      //Get the ECC certificate from the Cert and Private key PEM files
-      X509Certificate2 Certificate = CertificateSupport.GetCertificateFromPemFiles();
-      //X509Certificate2 Certificate = CertificateSupport.GetCertificate(CertificateSupport.TestingThumbprint);
-
-      //The Version of FHIR in use
-      string FhirVersion = "4.0.1";
-
-      //Get FHIR bundle
-      Bundle FhirBundleResource = FhirDataSupport.GetCovid19DetectedFhirBundleExample();
-      string FhirBundleJson = FhirSerializer.SerializeToJson(FhirBundleResource);
-      
-      //The base of the URL where a validator will retrieve the public keys from (e.g : [Issuer]/.well-known/jwks.json) 
-      Uri Issuer = new("https://e1414486fce0.ngrok.io");      
-
-      //When the Smart Health Card became valid, the from date.
-      DateTimeOffset IssuanceDateTimeOffset = DateTimeOffset.Now.AddMinutes(-1);
-
-      //The Uri for the type of VerifiableCredentials
-      // Uri VerifiableCredentialType = new Uri("https://smarthealth.cards#covid19");
-      List<VerifiableCredentialType> VerifiableCredentialTypeList = new()
+      // Arrange
+      X509Certificate2 certificate = CertificateSupport.GetCertificateFromPemFiles();
+      string fhirVersion = "4.0.1";
+      Bundle fhirBundleResource = FhirDataSupport.GetCovid19DetectedFhirBundleExample();
+      string fhirBundleJson = FhirSerializer.SerializeToJson(fhirBundleResource);
+      Uri issuer = new("https://e1414486fce0.ngrok.io");
+      DateTimeOffset issuanceDateTimeOffset = DateTimeOffset.Now.AddMinutes(-1);
+      List<VerifiableCredentialType> verifiableCredentialTypeList = new()
       {
         VerifiableCredentialType.HealthCard,
         VerifiableCredentialType.Covid19
       };
+      
+      SmartHealthCardModel smartHealthCard = new(issuer, issuanceDateTimeOffset,
+          new VerifiableCredential(verifiableCredentialTypeList,
+            new CredentialSubject(fhirVersion, fhirBundleJson)));
+      
+      SmartHealthCardEncoder encoder = new();
+      IJwksProvider mockedJwksProvider = JwksSupport.GetMockedIJwksProvider(certificate, issuer);
+      SmartHealthCardDecoder decoder = new(mockedJwksProvider);
 
-      //Create the SmartHealthCardModel
-      SmartHealthCardModel SmartHealthCard = new(Issuer, IssuanceDateTimeOffset,
-          new VerifiableCredential(VerifiableCredentialTypeList,
-            new CredentialSubject(FhirVersion, FhirBundleJson)));
+      // Act
+      string smartHealthCardJwsToken = await encoder.GetTokenAsync(certificate, smartHealthCard);
+      SmartHealthCardModel decodedSmartHealthCardModel = await decoder.DecodeAsync(smartHealthCardJwsToken, Verify: true);
 
-      //Instantiate the SmartHealthCard Encoder
-      SmartHealthCardEncoder SmartHealthCardEncoder = new();
-
-      //This testing JwksSupport class provides us with a mocked IJwksProvider that will inject the JWKS file
-      //rather than make the HTTP call to go get it from a public endpoint.
-      IJwksProvider MockedIJwksProvider = JwksSupport.GetMockedIJwksProvider(Certificate, Issuer);
-
-      //Instantiate the SmartHealthCard Decoder
-      //SmartHealthCardDecoder Decoder = new SmartHealthCardDecoder();
-      SmartHealthCardDecoder Decoder = new(MockedIJwksProvider);
-
-      //### Act ##########################################################
-
-      //Get the Smart Health Card JWS Token 
-
-      //string SmartHealthCardJwsToken = Assert.Throws<SmartHealthCardException>(() => SmartHealthCardEncoder.GetToken(Certificate, SmartHealthCardToEncode));
-      string SmartHealthCardJwsToken = await SmartHealthCardEncoder.GetTokenAsync(Certificate, SmartHealthCard);
-
-      //File.WriteAllText(@$"C:\Temp\SMARTHealthCard\Output\SmartHealthCardJwt.json", SmartHealthCardJwsToken);
-
-
-      //### Assert #######################################################
-
-      Assert.True(!string.IsNullOrWhiteSpace(SmartHealthCardJwsToken));
-
-
-      SmartHealthCardModel DecodedSmartHealthCardModle = await Decoder.DecodeAsync(SmartHealthCardJwsToken, Verify: true);
-
-      //Check the IssuanceDate as the same to seconds precision
-      DateTimeOffset ActualIssuanceDate = DecodedSmartHealthCardModle.GetIssuanceDate();
-      Assert.True((IssuanceDateTimeOffset - ActualIssuanceDate).TotalSeconds < 1);      
-      Assert.Equal(Issuer, DecodedSmartHealthCardModle.Issuer);
-      Assert.NotNull(DecodedSmartHealthCardModle.VerifiableCredential);
-      Assert.Equal(VerifiableCredentialTypeList, DecodedSmartHealthCardModle.VerifiableCredential.VerifiableCredentialTypeList);
-      Assert.NotNull(DecodedSmartHealthCardModle.VerifiableCredential.CredentialSubject);
-      Assert.Equal(FhirVersion, DecodedSmartHealthCardModle.VerifiableCredential.CredentialSubject.FhirVersion);      
+      // Assert
+      Assert.True(!string.IsNullOrWhiteSpace(smartHealthCardJwsToken));
+      
+      DateTimeOffset actualIssuanceDate = decodedSmartHealthCardModel.GetIssuanceDate();
+      Assert.True((issuanceDateTimeOffset - actualIssuanceDate).TotalSeconds < 1);
+      Assert.Equal(issuer, decodedSmartHealthCardModel.Issuer);
+      Assert.NotNull(decodedSmartHealthCardModel.VerifiableCredential);
+      Assert.Equal(verifiableCredentialTypeList, decodedSmartHealthCardModel.VerifiableCredential.VerifiableCredentialTypeList);
+      Assert.NotNull(decodedSmartHealthCardModel.VerifiableCredential.CredentialSubject);
+      Assert.Equal(fhirVersion, decodedSmartHealthCardModel.VerifiableCredential.CredentialSubject.FhirVersion);
     }
 
     

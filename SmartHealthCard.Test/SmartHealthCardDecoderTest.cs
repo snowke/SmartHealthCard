@@ -19,29 +19,27 @@ namespace SmartHealthCard.Test
     [Fact]
     public async void Decode_Token_Verify_with_JWKS()
     {
-      //### Prepare ######################################################
-      
+      // Arrange
       //Get the ECC certificate from the Cert and Private key PEM files
-      X509Certificate2 Certificate = CertificateSupport.GetCertificateFromPemFiles();
+      X509Certificate2 certificate = CertificateSupport.GetCertificateFromPemFiles();
 
       //The base of the URL where a validator will retrieve the public keys from (e.g : [Issuer]/.well-known/jwks.json) 
-      Uri Issuer = new("https://sonichealthcare.com/something");
-      string SmartHealthCardJwsToken = await SmartHealthCardJwsSupport.GetJWSCovidDetectedExampleOneAsync(Certificate, Issuer);
+      Uri issuer = new("https://sonichealthcare.com/something");
+      string smartHealthCardJwsToken = await SmartHealthCardJwsSupport.GetJWSCovidDetectedExampleOneAsync(certificate, issuer);
       
       //This testing JwksSupport class provides us with a mocked IJwksProvider that will inject the JWKS file
       //rather than make the HTTP call to go get it from a public endpoint.
-      IJwksProvider MockedIJwksProvider = JwksSupport.GetMockedIJwksProvider(Certificate, Issuer);
+      IJwksProvider mockedJwksProvider = JwksSupport.GetMockedIJwksProvider(certificate, issuer);
 
       //Instantiate the SmartHealthCard Decoder
-      SmartHealthCardDecoder Decoder = new(MockedIJwksProvider);
+      SmartHealthCardDecoder decoder = new(mockedJwksProvider);
 
-      //### Act #######################################################
-      SmartHealthCardModel SmartHealthCardModel = await Decoder.DecodeAsync(SmartHealthCardJwsToken, Verify: true);
+      // Act
+      SmartHealthCardModel smartHealthCardModel = await decoder.DecodeAsync(smartHealthCardJwsToken, Verify: true);
 
-      //### Assert #######################################################
-
-      Assert.True(!string.IsNullOrWhiteSpace(SmartHealthCardJwsToken));
-      Assert.NotNull(SmartHealthCardModel);      
+      // Assert
+      Assert.True(!string.IsNullOrWhiteSpace(smartHealthCardJwsToken));
+      Assert.NotNull(smartHealthCardModel);
     }
 
     /// <summary>
@@ -51,173 +49,160 @@ namespace SmartHealthCard.Test
     [Fact]
     public async void Decode_Token_Verify_IsTrue_IssuanceDate_Is_Invalid()
     {
-      //### Prepare ######################################################
-
+      // Arrange
       //Get the ECC certificate from the Cert and Private key PEM files
-      X509Certificate2 Certificate = CertificateSupport.GetCertificateFromPemFiles();     
+      X509Certificate2 certificate = CertificateSupport.GetCertificateFromPemFiles();
 
       //The base of the URL where a validator will retrieve the public keys from (e.g : [Issuer]/.well-known/jwks.json) 
-      Uri Issuer = new("https://sonichealthcare.com/something");
+      Uri issuer = new("https://sonichealthcare.com/something");
 
       //Gets a JWS token with an IssuanceDate that is 3 min into the future from now
-      string SmartHealthCardJwsToken = await SmartHealthCardJwsSupport.GetJWSCovidIssuanceDateInvalidExampleAsync(Certificate, Issuer);
+      string smartHealthCardJwsToken = await SmartHealthCardJwsSupport.GetJWSCovidIssuanceDateInvalidExampleAsync(certificate, issuer);
 
       //This testing JwksSupport class provides us with a mocked IJwksProvider that will inject the JWKS file
       //rather than make the HTTP call to go get it from a public endpoint.
-      IJwksProvider MockedIJwksProvider = JwksSupport.GetMockedIJwksProvider(Certificate, Issuer);
+      IJwksProvider mockedJwksProvider = JwksSupport.GetMockedIJwksProvider(certificate, issuer);
 
       //Instantiate the SmartHealthCard Decoder
-      SmartHealthCardDecoder Decoder = new(MockedIJwksProvider);
-
-      //### Act #######################################################     
-
-      System.Threading.Tasks.Task Act() => Decoder.DecodeAsync(SmartHealthCardJwsToken, Verify: true);
-
-      //### Assert #######################################################
-
-      var exception = await Assert.ThrowsAsync<SmartHealthCardDecoderException>(Act);
-      Assert.StartsWith("The token's Issuance Date (nbf) timestamp is earlier than the current date and time. The token is not valid untill:", exception.Message);      
+      SmartHealthCardDecoder decoder = new(mockedJwksProvider);
       
+      System.Threading.Tasks.Task Act() => decoder.DecodeAsync(smartHealthCardJwsToken, Verify: true);
+
+      // Act & Assert
+      var exception = await Assert.ThrowsAsync<SmartHealthCardDecoderException>(Act);
+      
+      // Assert
+      Assert.StartsWith("The token's Issuance Date (nbf) timestamp is earlier than the current date and time. The token is not valid untill:", exception.Message);
     }
 
     [Fact]
     public void Decode_Token_Verify_IsTrue_IssuanceDate_Is_Before_minimum_Allowed_Date()
     {
-      //### Prepare ######################################################
-
-      Uri Issuer = new("https://sonichealthcare.com/something");
+      // Arrange
+      Uri issuer = new("https://sonichealthcare.com/something");
 
       //The Version of FHIR in use
-      string FhirVersion = "4.0.1";
+      string fhirVersion = "4.0.1";
 
       //Get FHIR bundle
-      Bundle FhirBundleResource = FhirDataSupport.GetCovid19NotDetectedFhirBundleExample();
-      string FhirBundleJson = FhirSerializer.SerializeToJson(FhirBundleResource);
+      Bundle fhirBundleResource = FhirDataSupport.GetCovid19NotDetectedFhirBundleExample();
+      string fhirBundleJson = FhirSerializer.SerializeToJson(fhirBundleResource);
 
       //IssuanceDate can not be Before : 00:00:00 UTC on 1 January 1970
-      DateTimeOffset IssuanceDateTimeOffset = new(1970, 01, 01, 00, 00, 00, new TimeSpan(0, 0, 0));
-      IssuanceDateTimeOffset = IssuanceDateTimeOffset.AddSeconds(-1);
+      DateTimeOffset issuanceDateTimeOffset = new(1970, 01, 01, 00, 00, 00, new TimeSpan(0, 0, 0));
+      issuanceDateTimeOffset = issuanceDateTimeOffset.AddSeconds(-1);
 
       //The Uri for the type of VerifiableCredentials
-      // Uri VerifiableCredentialType = new Uri("https://smarthealth.cards#covid19");
-      List<VerifiableCredentialType> VerifiableCredentialTypeList = new()
+      List<VerifiableCredentialType> verifiableCredentialTypeList = new()
       {
         VerifiableCredentialType.VerifiableCredential,
         VerifiableCredentialType.HealthCard,
         VerifiableCredentialType.Covid19
       };
 
-      //### Act #######################################################     
-
+      // Act & Assert
       //Create the SmartHealthCardModel     
-      var ex = Assert.Throws<SmartHealthCardPayloadException>(() => new SmartHealthCardModel(Issuer, IssuanceDateTimeOffset, 
-                                                                                             new VerifiableCredential(VerifiableCredentialTypeList, 
-                                                                                             new CredentialSubject(FhirVersion, FhirBundleJson))));
-      //### Assert #######################################################
-
+      var ex = Assert.Throws<SmartHealthCardPayloadException>(() => new SmartHealthCardModel(issuer, issuanceDateTimeOffset, 
+                                                                                             new VerifiableCredential(verifiableCredentialTypeList, 
+                                                                                             new CredentialSubject(fhirVersion, fhirBundleJson))));
+      
+      // Assert
       Assert.Equal("The provided IssuanceDate is a date and time before the minimum allowed date and time of: 00:00:00 UTC on 1 January 1970", ex.Message);
-
     }
 
     [Fact]
     public async void Decode_Token_Verify_with_Certificate()
     {
-      //### Prepare ######################################################
+      // Arrange
       //Get the ECC certificate from the Cert and Private key PEM files
-      X509Certificate2 Certificate = CertificateSupport.GetCertificateFromPemFiles();
+      X509Certificate2 certificate = CertificateSupport.GetCertificateFromPemFiles();
 
       //The base of the URL where a validator will retrieve the public keys from (e.g : [Issuer]/.well-known/jwks.json) 
-      Uri Issuer = new("https://sonichealthcare.com/something");
-      string SmartHealthCardJwsToken = await SmartHealthCardJwsSupport.GetJWSCovidDetectedExampleOneAsync(Certificate, Issuer);
+      Uri issuer = new("https://sonichealthcare.com/something");
+      string smartHealthCardJwsToken = await SmartHealthCardJwsSupport.GetJWSCovidDetectedExampleOneAsync(certificate, issuer);
 
       //This testing JwksSupport class provides us with a mocked IJwksProvider that will inject the JWKS file
       //rather than make the HTTP call to go get it from a public endpoint.
-      IJwksProvider MockedIJwksProvider = JwksSupport.GetMockedIJwksProvider(Certificate, Issuer);
+      IJwksProvider mockedJwksProvider = JwksSupport.GetMockedIJwksProvider(certificate, issuer);
 
       //Instantiate the SmartHealthCard Decoder
-      SmartHealthCardDecoder Decoder = new(MockedIJwksProvider);
+      SmartHealthCardDecoder decoder = new(mockedJwksProvider);
 
-      //### Act #######################################################
-
+      // Act
       //Verify and Decode
-      SmartHealthCardModel SmartHealthCardModel = await Decoder.DecodeAsync(SmartHealthCardJwsToken, Verify: true);
+      SmartHealthCardModel smartHealthCardModel = await decoder.DecodeAsync(smartHealthCardJwsToken, Verify: true);
 
-      //### Assert #######################################################
-
-      Assert.True(!string.IsNullOrWhiteSpace(SmartHealthCardJwsToken));
-      Assert.NotNull(SmartHealthCardModel);
+      // Assert
+      Assert.True(!string.IsNullOrWhiteSpace(smartHealthCardJwsToken));
+      Assert.NotNull(smartHealthCardModel);
     }
 
     [Fact]
     public async void Decode_Token_Verify_InvalidTokenSignature_Certificate()
     {
-      //### Prepare ######################################################
+      // Arrange
       //Get the ECC certificate from the Cert and Private key PEM files
-      X509Certificate2 Certificate = CertificateSupport.GetCertificateFromPemFiles();
+      X509Certificate2 certificate = CertificateSupport.GetCertificateFromPemFiles();
 
       //The base of the URL where a validator will retrieve the public keys from (e.g : [Issuer]/.well-known/jwks.json) 
-      Uri Issuer = new("https://sonichealthcare.com/something");
+      Uri issuer = new("https://sonichealthcare.com/something");
 
-      string SmartHealthCardJwsTokenCovidDetected = await SmartHealthCardJwsSupport.GetJWSCovidDetectedExampleOneAsync(Certificate, Issuer);
-      string SmartHealthCardJwsTokenCovidNotDetected = await SmartHealthCardJwsSupport.GetJWSCovidNotDetectedExampleOneAsync(Certificate, Issuer);
+      string smartHealthCardJwsTokenCovidDetected = await SmartHealthCardJwsSupport.GetJWSCovidDetectedExampleOneAsync(certificate, issuer);
+      string smartHealthCardJwsTokenCovidNotDetected = await SmartHealthCardJwsSupport.GetJWSCovidNotDetectedExampleOneAsync(certificate, issuer);
 
       //Here we have taken the Payload of a NotDetected Covid test result and substituted it into
       //a token build with a Detected Covid Test result, so the signature is now be invalid for it's payload.
-      string[] JWSSplitCovidNotDetected = SmartHealthCardJwsTokenCovidNotDetected.Split('.');
-      string[] JWSSplitCovidDetected = SmartHealthCardJwsTokenCovidDetected.Split('.');
-      string FraudulentSmartHealthCardJwsToken = string.Join('.', JWSSplitCovidDetected[0], JWSSplitCovidNotDetected[1], JWSSplitCovidDetected[2]);
+      string[] jwsSplitCovidNotDetected = smartHealthCardJwsTokenCovidNotDetected.Split('.');
+      string[] jwsSplitCovidDetected = smartHealthCardJwsTokenCovidDetected.Split('.');
+      string fraudulentSmartHealthCardJwsToken = string.Join('.', jwsSplitCovidDetected[0], jwsSplitCovidNotDetected[1], jwsSplitCovidDetected[2]);
 
       //This testing JwksSupport class provides us with a mocked IJwksProvider that will inject the JWKS file
       //rather than make the HTTP call to go get it from a public endpoint.
-      IJwksProvider MockedIJwksProvider = JwksSupport.GetMockedIJwksProvider(Certificate, Issuer);
+      IJwksProvider mockedJwksProvider = JwksSupport.GetMockedIJwksProvider(certificate, issuer);
 
       //Instantiate the SmartHealthCard Decoder
-      SmartHealthCardDecoder Decoder = new(MockedIJwksProvider);
+      SmartHealthCardDecoder decoder = new(mockedJwksProvider);
 
-      //### Act #######################################################
-
+      // Act & Assert
       //Verify and Decode
-      SmartHealthCardSignatureInvalidException Exec = await Assert.ThrowsAsync<SmartHealthCardSignatureInvalidException>(() => Decoder.DecodeAsync(FraudulentSmartHealthCardJwsToken, Verify: true));
+      SmartHealthCardSignatureInvalidException exception = await Assert.ThrowsAsync<SmartHealthCardSignatureInvalidException>(() => decoder.DecodeAsync(fraudulentSmartHealthCardJwsToken, Verify: true));
 
-      //### Assert #######################################################
-      Assert.Equal("The JWS signing signature is invalid.", Exec.Message);
-
+      // Assert
+      Assert.Equal("The JWS signing signature is invalid.", exception.Message);
     }
 
     [Fact]
     public async void Decode_Token_Verify_JWKS_Is_Inaccessible()
     {
-      //### Prepare ######################################################
+      // Arrange
       //Get the ECC certificate from the Cert and Private key PEM files
-      X509Certificate2 Certificate = CertificateSupport.GetCertificateFromPemFiles();
+      X509Certificate2 certificate = CertificateSupport.GetCertificateFromPemFiles();
 
       //The base of the URL where a validator will retrieve the public keys from (e.g : [Issuer]/.well-known/jwks.json) 
-      Uri Issuer = new("https://sonichealthcare.com/something");
+      Uri issuer = new("https://sonichealthcare.com/something");
 
-      string SmartHealthCardJwsTokenCovidDetected = await SmartHealthCardJwsSupport.GetJWSCovidDetectedExampleOneAsync(Certificate, Issuer);
-      string SmartHealthCardJwsTokenCovidNotDetected = await SmartHealthCardJwsSupport.GetJWSCovidNotDetectedExampleOneAsync(Certificate, Issuer);
+      string smartHealthCardJwsTokenCovidDetected = await SmartHealthCardJwsSupport.GetJWSCovidDetectedExampleOneAsync(certificate, issuer);
+      string smartHealthCardJwsTokenCovidNotDetected = await SmartHealthCardJwsSupport.GetJWSCovidNotDetectedExampleOneAsync(certificate, issuer);
 
       //Here we have taken the Payload of a NotDetected Covid test result and substituted it into
       //a token build with a Detected Covid Test result, so the signature is now be invalid for it's payload.
-      string[] JWSSplitCovidNotDetected = SmartHealthCardJwsTokenCovidNotDetected.Split('.');
-      string[] JWSSplitCovidDetected = SmartHealthCardJwsTokenCovidDetected.Split('.');
-      string FraudulentSmartHealthCardJwsToken = string.Join('.', JWSSplitCovidDetected[0], JWSSplitCovidNotDetected[1], JWSSplitCovidDetected[2]);
+      string[] jwsSplitCovidNotDetected = smartHealthCardJwsTokenCovidNotDetected.Split('.');
+      string[] jwsSplitCovidDetected = smartHealthCardJwsTokenCovidDetected.Split('.');
+      string fraudulentSmartHealthCardJwsToken = string.Join('.', jwsSplitCovidDetected[0], jwsSplitCovidNotDetected[1], jwsSplitCovidDetected[2]);
 
       //This testing JwksSupport class provides us with a mocked IJwksProvider that will inject the JWKS file
       //rather than make the HTTP call to go get it from a public endpoint.
-      IJwksProvider MockedIJwksProvider = JwksSupport.GetMockedIJwksProvider(Certificate, Issuer);
+      IJwksProvider mockedJwksProvider = JwksSupport.GetMockedIJwksProvider(certificate, issuer);
 
       //Instantiate the SmartHealthCard Decoder
-      SmartHealthCardDecoder Decoder = new(MockedIJwksProvider);
+      SmartHealthCardDecoder decoder = new(mockedJwksProvider);
 
-      //### Act #######################################################
-
+      // Act & Assert
       //Verify and Decode
-      SmartHealthCardSignatureInvalidException Exec = await Assert.ThrowsAsync<SmartHealthCardSignatureInvalidException>(() => Decoder.DecodeAsync(FraudulentSmartHealthCardJwsToken, Verify: true));
+      SmartHealthCardSignatureInvalidException exception = await Assert.ThrowsAsync<SmartHealthCardSignatureInvalidException>(() => decoder.DecodeAsync(fraudulentSmartHealthCardJwsToken, Verify: true));
 
-      //### Assert #######################################################
-      Assert.Equal("The JWS signing signature is invalid.", Exec.Message);
-
+      // Assert
+      Assert.Equal("The JWS signing signature is invalid.", exception.Message);
     }
 
     

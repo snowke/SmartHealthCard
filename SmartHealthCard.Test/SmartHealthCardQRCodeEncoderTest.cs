@@ -26,28 +26,25 @@ namespace SmartHealthCard.Test
     [Fact]
     public async void Encode_QRCode()
     {
-      //### Prepare ######################################################
-
+      // Arrange
       //Get the ECC certificate from the Cert and Private key PEM files
-      X509Certificate2 Certificate = CertificateSupport.GetCertificateFromPemFiles();
+      X509Certificate2 certificate = CertificateSupport.GetCertificateFromPemFiles();
 
       //The Version of FHIR in use
-      string FhirVersion = "4.0.1";
+      string fhirVersion = "4.0.1";
 
       //Get FHIR bundle
-      //Bundle FhirBundleResource = FhirDataSupport.GetCovid19DetectedFhirBundleExample();
-      Bundle FhirBundleResource = FhirDataSupport.GetCovid19NotDetectedFhirBundleExample();
-      string FhirBundleJson = FhirSerializer.SerializeToJson(FhirBundleResource);
+      Bundle fhirBundleResource = FhirDataSupport.GetCovid19NotDetectedFhirBundleExample();
+      string fhirBundleJson = FhirSerializer.SerializeToJson(fhirBundleResource);
 
-      //The base of the URL where a validator will retie the public keys from (e.g : [Issuer]/.well-known/jwks.json) 
-      Uri Issuer = new("https://localhost:44306/Smart-health-card");
+      //The base of the URL where a validator will retrieve the public keys from (e.g : [Issuer]/.well-known/jwks.json) 
+      Uri issuer = new("https://localhost:44306/Smart-health-card");
 
       //When the Smart Health Card became valid, the from date.
-      DateTimeOffset IssuanceDateTimeOffset = DateTimeOffset.Now.AddMinutes(-1);
+      DateTimeOffset issuanceDateTimeOffset = DateTimeOffset.Now.AddMinutes(-1);
 
       //The Uri for the type of VerifiableCredentials
-      // Uri VerifiableCredentialType = new Uri("https://smarthealth.cards#covid19");
-      List<VerifiableCredentialType> VerifiableCredentialTypeList = new()
+      List<VerifiableCredentialType> verifiableCredentialTypeList = new()
       {
         VerifiableCredentialType.HealthCard,
         VerifiableCredentialType.Covid19,
@@ -55,126 +52,84 @@ namespace SmartHealthCard.Test
       };
 
       //Create the SmartHealthCardModel
-      SmartHealthCardModel SmartHealthCardToEncode = new(Issuer, IssuanceDateTimeOffset,
-          new VerifiableCredential(VerifiableCredentialTypeList,
-            new CredentialSubject(FhirVersion, FhirBundleJson)));
+      SmartHealthCardModel smartHealthCardToEncode = new(issuer, issuanceDateTimeOffset,
+          new VerifiableCredential(verifiableCredentialTypeList,
+            new CredentialSubject(fhirVersion, fhirBundleJson)));
 
       //Instantiate the SmartHealthCard Encoder
-      SmartHealthCardEncoder SmartHealthCardEncoder = new();      
-      
-      //### Act ##########################################################
+      SmartHealthCardEncoder smartHealthCardEncoder = new();
+      SmartHealthCardQRCodeEncoder smartHealthCardQRCodeFactory = new();
 
-      //Get the Smart Health Card retrieve Token 
-      string SmartHealthCardJwsToken = await SmartHealthCardEncoder.GetTokenAsync(Certificate, SmartHealthCardToEncode);
+      // Act
+      //Get the Smart Health Card JWS Token 
+      string smartHealthCardJwsToken = await smartHealthCardEncoder.GetTokenAsync(certificate, smartHealthCardToEncode);
 
       //Create list of QR Codes
-      SmartHealthCardQRCodeEncoder SmartHealthCardQRCodeFactory = new();
-      List<SKBitmap> QRCodeImageList = SmartHealthCardQRCodeFactory.GetQRCodeList(SmartHealthCardJwsToken);
+      List<SKBitmap> qrCodeImageList = smartHealthCardQRCodeFactory.GetQRCodeList(smartHealthCardJwsToken);
 
-
-      //Write out QR Code to file
-      //for (int i = 0; i < QRCodeImageList.Count; i++)
-      //{
-      //  using SKData data = QRCodeImageList[i].Encode(SKEncodedImageFormat.Png, 90);
-      //  using FileStream stream = File.OpenWrite(@$"C:\Temp\SMARTHealthCard\Output\QRCode-{i}.png");
-      //  data.SaveTo(stream);        
-      //}
-
-      //### Assert #######################################################
-
-      Assert.True(!string.IsNullOrWhiteSpace(SmartHealthCardJwsToken));
-      Assert.NotNull(QRCodeImageList);
-      Assert.Single(QRCodeImageList);
-
+      // Assert
+      Assert.True(!string.IsNullOrWhiteSpace(smartHealthCardJwsToken));
+      Assert.NotNull(qrCodeImageList);
+      Assert.Single(qrCodeImageList);
     }
 
     
     [Fact]
     public async void Decode_QRCodeRawData()
     {
-      //### Prepare ######################################################
-
+      // Arrange
       //Get the ECC certificate from the Cert and Private key PEM files
-      X509Certificate2 Certificate = CertificateSupport.GetCertificateFromPemFiles();
-      //X509Certificate2 Certificate = CertificateSupport.GetCertificate(CertificateSupport.TestingThumbprint);
+      X509Certificate2 certificate = CertificateSupport.GetCertificateFromPemFiles();
 
       //The Version of FHIR in use
-      string FhirVersion = "4.0.1";
+      string fhirVersion = "4.0.1";
 
       //Get FHIR bundle
-      //Bundle FhirBundleResource = FhirDataSupport.GetCovid19DetectedFhirBundleExample();
-      Bundle FhirBundleResource = FhirDataSupport.GetCovid19NotDetectedFhirBundleExample();
-      string FhirBundleJson = FhirSerializer.SerializeToJson(FhirBundleResource);
-      
-      //File.WriteAllText(@$"C:\Temp\SMARTHealthCard\Output\FHIRBundle.json", FhirBundleJson);
+      Bundle fhirBundleResource = FhirDataSupport.GetCovid19NotDetectedFhirBundleExample();
+      string fhirBundleJson = FhirSerializer.SerializeToJson(fhirBundleResource);
 
-      //The base of the URL where a validator will retie the public keys from (e.g : [Issuer]/.well-known/jwks.json) 
-      Uri Issuer = new("https://e1414486fce0.ngrok.io");
+      //The base of the URL where a validator will retrieve the public keys from (e.g : [Issuer]/.well-known/jwks.json) 
+      Uri issuer = new("https://e1414486fce0.ngrok.io");
 
       //When the Smart Health Card became valid, the from date.
-      DateTimeOffset IssuanceDateTimeOffset = DateTimeOffset.Now.AddMinutes(-1);
+      DateTimeOffset issuanceDateTimeOffset = DateTimeOffset.Now.AddMinutes(-1);
 
       //The Uri for the type of VerifiableCredentials
-      // Uri VerifiableCredentialType = new Uri("https://smarthealth.cards#covid19");
-      List<VerifiableCredentialType> VerifiableCredentialTypeList = new() 
+      List<VerifiableCredentialType> verifiableCredentialTypeList = new() 
       { 
         VerifiableCredentialType.HealthCard, 
         VerifiableCredentialType.Covid19 
       };
 
       //Create the SmartHealthCardModel
-      SmartHealthCardModel SmartHealthCardModel = new(Issuer, IssuanceDateTimeOffset,
-          new VerifiableCredential(VerifiableCredentialTypeList,
-            new CredentialSubject(FhirVersion, FhirBundleJson)));
+      SmartHealthCardModel smartHealthCardModel = new(issuer, issuanceDateTimeOffset,
+          new VerifiableCredential(verifiableCredentialTypeList,
+            new CredentialSubject(fhirVersion, fhirBundleJson)));
 
-      //Instantiate the SmartHealthCard Encoder
-      SmartHealthCardEncoder SmartHealthCardEncoder = new();      
+      //Instantiate components
+      SmartHealthCardEncoder smartHealthCardEncoder = new();
+      SmartHealthCardQRCodeEncoder smartHealthCardQRCodeEncoder = new();
+      SmartHealthCardQRCodeDecoder smartHealthCardQRCodeDecoder = new();
+      IJwksProvider mockedJwksProvider = JwksSupport.GetMockedIJwksProvider(certificate, issuer);
+      SmartHealthCardDecoder smartHealthCardDecoder = new(mockedJwksProvider);
 
-      //### Act ##########################################################
+      // Act
+      //Get the Smart Health Card JWS Token 
+      string smartHealthCardJwsToken = await smartHealthCardEncoder.GetTokenAsync(certificate, smartHealthCardModel);
 
-      //Get the Smart Health Card retrieve Token 
-      string SmartHealthCardJwsToken = await SmartHealthCardEncoder.GetTokenAsync(Certificate, SmartHealthCardModel);
-      //File.WriteAllText(@$"C:\Temp\SMARTHealthCard\Output\JwsToken.txt", SmartHealthCardJwsToken);
+      //Create list of QR Code raw data
+      List<string> qrCodeRawDataList = smartHealthCardQRCodeEncoder.GetQRCodeRawDataList(smartHealthCardJwsToken);
 
-      //Create list of QR Codes
-      SmartHealthCardQRCodeEncoder SmartHealthCardQRCodeEncoder = new();
-      List<string> QRCodeRawDataList = SmartHealthCardQRCodeEncoder.GetQRCodeRawDataList(SmartHealthCardJwsToken);
+      //Decode QR code back to JWS token
+      string jws = smartHealthCardQRCodeDecoder.GetToken(qrCodeRawDataList);
 
-      //Write out Raw QR Code data to file
-      //for (int i = 0; i < QRCodeRawDataList.Count; i++)
-      //{
-      //  File.WriteAllText(@$"C:\Temp\SMARTHealthCard\Output\RawQRCodeData-{i}.txt", QRCodeRawDataList[i]);
-      //}
+      //Verify the decoded token
+      SmartHealthCardModel decodedSmartHealthCardModel = await smartHealthCardDecoder.DecodeAsync(jws, true);
 
-      SmartHealthCardQRCodeDecoder SmartHealthCardQRCodeDecoder = new();
-      string JWS = SmartHealthCardQRCodeDecoder.GetToken(QRCodeRawDataList);
-
-      //Create list of QR Codes
-      
-#pragma warning disable IDE0059 // Unnecessary assignment of a value
-      List<SKBitmap> QRCodeImageList = SmartHealthCardQRCodeEncoder.GetQRCodeList(SmartHealthCardJwsToken);
-#pragma warning restore IDE0059 // Unnecessary assignment of a value
-
-      //Write out QR Code Image to files
-      //for (int i = 0; i < QRCodeImageList.Count; i++)
-      //{
-      //  using SKData data = QRCodeImageList[i].Encode(SKEncodedImageFormat.Png, 90);
-      //  using FileStream stream = File.OpenWrite(@$"C:\Temp\SMARTHealthCard\Output\QRCode-{i}.png");
-      //  data.SaveTo(stream);
-      //}
-     
-
-      //This testing JwksSupport class provides us with a mocked IJwksProvider that will inject the JWKS file
-      //rather than make the HTTP call to go get it from a public endpoint.
-      IJwksProvider MockedIJwksProvider = JwksSupport.GetMockedIJwksProvider(Certificate, Issuer);
-      SmartHealthCardDecoder SmartHealthCardDecoder = new(MockedIJwksProvider);
-      SmartHealthCardModel = await SmartHealthCardDecoder.DecodeAsync(JWS, true);
-      //### Assert #######################################################
-
-      Assert.True(!string.IsNullOrWhiteSpace(JWS));
-      Assert.Equal(3, JWS.Split('.').Length);
-      Assert.NotNull(SmartHealthCardModel);
-
+      // Assert
+      Assert.True(!string.IsNullOrWhiteSpace(jws));
+      Assert.Equal(3, jws.Split('.').Length);
+      Assert.NotNull(decodedSmartHealthCardModel);
     }
 
   }
