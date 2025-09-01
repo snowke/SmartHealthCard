@@ -68,6 +68,15 @@ namespace SmartHealthCard.Token
     }
 
     /// <summary>
+    /// Returns a simple hello world message
+    /// </summary>
+    /// <returns>Hello World string</returns>
+    public string HelloWorld()
+    {
+      return "Hello World!";
+    }
+
+    /// <summary>
     /// Get many SMART Health Card JWS Tokens in a .smart-health-card JSON file format 
     /// Requires a Certificate containing a private Elliptic Curve key using the P-256 curve
     /// Requires a SMART Health Card payload in an object model form  
