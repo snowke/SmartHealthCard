@@ -18,6 +18,7 @@ using System.IO;
 using SmartHealthCard.Token.Providers;
 using System.Runtime.Versioning;
 using SkiaSharp;
+using Net.Codecrete.QrCodeGenerator;
 
 namespace SmartHealthCard.Test
 {
@@ -130,6 +131,44 @@ namespace SmartHealthCard.Test
       Assert.True(!string.IsNullOrWhiteSpace(jws));
       Assert.Equal(3, jws.Split('.').Length);
       Assert.NotNull(decodedSmartHealthCardModel);
+    }
+
+    [Fact]
+    public void QRCodeExtensions_ToBitmap_With_Custom_Colors_Should_Generate_Bitmap()
+    {
+      // Arrange
+      var qrCode = Net.Codecrete.QrCodeGenerator.QrCode.EncodeText("shc:/567629095326546034602", Net.Codecrete.QrCodeGenerator.QrCode.Ecc.Medium);
+      int pixelPerModule = 4;
+      int border = 2;
+      SkiaSharp.SKColor foregroundColor = SkiaSharp.SKColors.Black;
+      SkiaSharp.SKColor backgroundColor = SkiaSharp.SKColors.White;
+
+      // Act
+      SkiaSharp.SKBitmap bitmap = qrCode.ToBitmap(pixelPerModule, border, foregroundColor, backgroundColor);
+
+      // Assert
+      Assert.NotNull(bitmap);
+      Assert.True(bitmap.Width > 0);
+      Assert.True(bitmap.Height > 0);
+      bitmap.Dispose();
+    }
+
+    [Fact]
+    public void QRCodeExtensions_ToBitmap_With_Default_Colors_Should_Generate_Bitmap()
+    {
+      // Arrange
+      var qrCode = Net.Codecrete.QrCodeGenerator.QrCode.EncodeText("shc:/567629095326546034602", Net.Codecrete.QrCodeGenerator.QrCode.Ecc.Medium);
+      int pixelPerModule = 2;
+      int border = 1;
+
+      // Act
+      SkiaSharp.SKBitmap bitmap = qrCode.ToBitmap(pixelPerModule, border);
+
+      // Assert
+      Assert.NotNull(bitmap);
+      Assert.True(bitmap.Width > 0);
+      Assert.True(bitmap.Height > 0);
+      bitmap.Dispose();
     }
 
   }

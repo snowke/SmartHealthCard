@@ -205,8 +205,42 @@ namespace SmartHealthCard.Test
       Assert.Equal("The JWS signing signature is invalid.", exception.Message);
     }
 
-    
+    [Fact]
+    public async void DecodeToJsonAsync_Should_Return_Json_String()
+    {
+      // Arrange
+      X509Certificate2 certificate = CertificateSupport.GetCertificateFromPemFiles();
+      Uri issuer = new("https://sonichealthcare.com/something");
+      string smartHealthCardJwsToken = await SmartHealthCardJwsSupport.GetJWSCovidDetectedExampleOneAsync(certificate, issuer);
+      IJwksProvider mockedJwksProvider = JwksSupport.GetMockedIJwksProvider(certificate, issuer);
+      SmartHealthCardDecoder decoder = new(mockedJwksProvider);
 
+      // Act
+      string jsonResult = await decoder.DecodeToJsonAsync(smartHealthCardJwsToken, Verify: true);
+
+      // Assert
+      Assert.True(!string.IsNullOrWhiteSpace(jsonResult));
+      Assert.Contains("iss", jsonResult); //Should contain issuer field
+      Assert.Contains("vc", jsonResult);  //Should contain verifiable credential field
+    }
+
+    [Fact]
+    public async void DecodeToJsonAsync_Without_Verification_Should_Return_Json()
+    {
+      // Arrange  
+      X509Certificate2 certificate = CertificateSupport.GetCertificateFromPemFiles();
+      Uri issuer = new("https://sonichealthcare.com/something");
+      string smartHealthCardJwsToken = await SmartHealthCardJwsSupport.GetJWSCovidDetectedExampleOneAsync(certificate, issuer);
+      SmartHealthCardDecoder decoder = new(); //No JWKS provider needed for unverified decode
+
+      // Act
+      string jsonResult = await decoder.DecodeToJsonAsync(smartHealthCardJwsToken, Verify: false);
+
+      // Assert
+      Assert.True(!string.IsNullOrWhiteSpace(jsonResult));
+      Assert.Contains("iss", jsonResult);
+      Assert.Contains("vc", jsonResult);
+    }
 
   }
 }

@@ -59,6 +59,62 @@ namespace SmartHealthCard.Test
       Assert.Equal(fhirVersion, decodedSmartHealthCardModel.VerifiableCredential.CredentialSubject.FhirVersion);
     }
 
+    [Fact]
+    public void HelloWorld_Should_Return_Expected_Message()
+    {
+      // Arrange
+      SmartHealthCardEncoder encoder = new();
+
+      // Act
+      string result = encoder.HelloWorld();
+
+      // Assert
+      Assert.Equal("Hello World!", result);
+    }
+
+    [Fact]
+    public async void GetSmartHealthCardFile_Should_Create_File_With_Multiple_Cards()
+    {
+      // Arrange
+      X509Certificate2 certificate = CertificateSupport.GetCertificateFromPemFiles();
+      string fhirVersion = "4.0.1";
+      Uri issuer = new("https://test-issuer.com");
+      DateTimeOffset issuanceDateTimeOffset = DateTimeOffset.Now.AddMinutes(-1);
+      
+      Bundle fhirBundle1 = FhirDataSupport.GetCovid19DetectedFhirBundleExample();
+      Bundle fhirBundle2 = FhirDataSupport.GetCovid19NotDetectedFhirBundleExample();
+      string fhirBundleJson1 = FhirSerializer.SerializeToJson(fhirBundle1);
+      string fhirBundleJson2 = FhirSerializer.SerializeToJson(fhirBundle2);
+      
+      List<VerifiableCredentialType> verifiableCredentialTypes = new()
+      {
+        VerifiableCredentialType.HealthCard,
+        VerifiableCredentialType.Covid19
+      };
+
+      List<SmartHealthCardModel> smartHealthCardList = new()
+      {
+        new(issuer, issuanceDateTimeOffset,
+            new VerifiableCredential(verifiableCredentialTypes,
+              new CredentialSubject(fhirVersion, fhirBundleJson1))),
+        new(issuer, issuanceDateTimeOffset.AddMinutes(1),
+            new VerifiableCredential(verifiableCredentialTypes,
+              new CredentialSubject(fhirVersion, fhirBundleJson2)))
+      };
+
+      SmartHealthCardEncoder encoder = new();
+
+      // Act
+      string smartHealthCardFileJson = await encoder.GetSmartHealthCardFile(certificate, smartHealthCardList);
+
+      // Assert
+      Assert.True(!string.IsNullOrWhiteSpace(smartHealthCardFileJson));
+      Assert.Contains("verifiableCredential", smartHealthCardFileJson);
+      
+      //Just verify basic structure since exact JWS count depends on token structure
+      Assert.Contains("[", smartHealthCardFileJson); //Should be JSON array
+      Assert.Contains("]", smartHealthCardFileJson);
+    }
     
   }
 }
